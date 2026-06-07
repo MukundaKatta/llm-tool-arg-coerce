@@ -73,9 +73,18 @@ _BOOL_FALSE = {"false", "no", "0", "off"}
 
 
 def _type_name(t: Any) -> str:
-    """Best-effort short name for a type, generic alias, or python value."""
+    """Best-effort short name for a type, generic alias, or python value.
+
+    Parameterized generics (e.g. ``dict[str, int]``) are rendered with their
+    type arguments via ``str`` so the representation is stable across Python
+    versions. On 3.10/3.11 ``isinstance(dict[str, int], type)`` is True (and
+    its ``__name__`` is just ``"dict"``), while on 3.12+ it is False; checking
+    for a generic origin first keeps the output consistent everywhere.
+    """
     if t is None or t is type(None):
         return "None"
+    if get_origin(t) is not None:
+        return str(t)
     if isinstance(t, type):
         return t.__name__
     return str(t)
