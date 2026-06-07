@@ -124,9 +124,7 @@ def _is_optional(t: Any) -> tuple[bool, Any]:
     Otherwise (False, t)."""
     origin = get_origin(t)
     # typing.Union and types.UnionType (PEP 604 `X | None`) both work via get_args
-    if origin is Union or (
-        hasattr(types, "UnionType") and isinstance(t, types.UnionType)
-    ):
+    if origin is Union or (hasattr(types, "UnionType") and isinstance(t, types.UnionType)):
         args = [a for a in get_args(t) if a is not type(None)]
         if len(args) == 1 and type(None) in get_args(t):
             return True, args[0]
@@ -186,11 +184,15 @@ def _coerce_value(
                     None,
                 )
             except Exception as e:
-                return value, None, CoercionFailure(
-                    name=name,
-                    expected=expected_name,
-                    got=value,
-                    error_message=f"{type(e).__name__}: {e}",
+                return (
+                    value,
+                    None,
+                    CoercionFailure(
+                        name=name,
+                        expected=expected_name,
+                        got=value,
+                        error_message=f"{type(e).__name__}: {e}",
+                    ),
                 )
 
     # Already the right base type - may still need elementwise coercion for generics
@@ -201,9 +203,7 @@ def _coerce_value(
         elif base_type is list and type_args:
             return _coerce_list_elements(name, value, type_args[0], custom_coercers)
         elif base_type is dict and len(type_args) == 2:
-            return _coerce_dict_elements(
-                name, value, type_args[0], type_args[1], custom_coercers
-            )
+            return _coerce_dict_elements(name, value, type_args[0], type_args[1], custom_coercers)
         else:
             return value, None, None
 
@@ -213,11 +213,15 @@ def _coerce_value(
             try:
                 coerced = int(value.strip())
             except ValueError as e:
-                return value, None, CoercionFailure(
-                    name=name,
-                    expected=expected_name,
-                    got=value,
-                    error_message=str(e),
+                return (
+                    value,
+                    None,
+                    CoercionFailure(
+                        name=name,
+                        expected=expected_name,
+                        got=value,
+                        error_message=str(e),
+                    ),
                 )
             return (
                 coerced,
@@ -234,11 +238,15 @@ def _coerce_value(
             try:
                 coerced = float(value.strip())
             except ValueError as e:
-                return value, None, CoercionFailure(
-                    name=name,
-                    expected=expected_name,
-                    got=value,
-                    error_message=str(e),
+                return (
+                    value,
+                    None,
+                    CoercionFailure(
+                        name=name,
+                        expected=expected_name,
+                        got=value,
+                        error_message=str(e),
+                    ),
                 )
             return (
                 coerced,
@@ -255,11 +263,15 @@ def _coerce_value(
             try:
                 coerced = _str_to_bool(value)
             except ValueError as e:
-                return value, None, CoercionFailure(
-                    name=name,
-                    expected=expected_name,
-                    got=value,
-                    error_message=str(e),
+                return (
+                    value,
+                    None,
+                    CoercionFailure(
+                        name=name,
+                        expected=expected_name,
+                        got=value,
+                        error_message=str(e),
+                    ),
                 )
             return (
                 coerced,
@@ -276,18 +288,26 @@ def _coerce_value(
             try:
                 parsed = _parse_collection(value)
             except ValueError as e:
-                return value, None, CoercionFailure(
-                    name=name,
-                    expected=expected_name,
-                    got=value,
-                    error_message=str(e),
+                return (
+                    value,
+                    None,
+                    CoercionFailure(
+                        name=name,
+                        expected=expected_name,
+                        got=value,
+                        error_message=str(e),
+                    ),
                 )
             if not isinstance(parsed, list):
-                return value, None, CoercionFailure(
-                    name=name,
-                    expected=expected_name,
-                    got=value,
-                    error_message=f"parsed value is not a list: {type(parsed).__name__}",
+                return (
+                    value,
+                    None,
+                    CoercionFailure(
+                        name=name,
+                        expected=expected_name,
+                        got=value,
+                        error_message=f"parsed value is not a list: {type(parsed).__name__}",
+                    ),
                 )
             # elementwise coerce if generic
             if type_args:
@@ -322,18 +342,26 @@ def _coerce_value(
             try:
                 parsed = _parse_collection(value)
             except ValueError as e:
-                return value, None, CoercionFailure(
-                    name=name,
-                    expected=expected_name,
-                    got=value,
-                    error_message=str(e),
+                return (
+                    value,
+                    None,
+                    CoercionFailure(
+                        name=name,
+                        expected=expected_name,
+                        got=value,
+                        error_message=str(e),
+                    ),
                 )
             if not isinstance(parsed, dict):
-                return value, None, CoercionFailure(
-                    name=name,
-                    expected=expected_name,
-                    got=value,
-                    error_message=f"parsed value is not a dict: {type(parsed).__name__}",
+                return (
+                    value,
+                    None,
+                    CoercionFailure(
+                        name=name,
+                        expected=expected_name,
+                        got=value,
+                        error_message=f"parsed value is not a dict: {type(parsed).__name__}",
+                    ),
                 )
             if len(type_args) == 2:
                 coerced_dict, _, _ = _coerce_dict_elements(
@@ -423,11 +451,15 @@ def _coerce_value(
         )
 
     # Nothing matched
-    return value, None, CoercionFailure(
-        name=name,
-        expected=expected_name,
-        got=value,
-        error_message=f"no coercion path from {original_type.__name__} to {expected_name}",
+    return (
+        value,
+        None,
+        CoercionFailure(
+            name=name,
+            expected=expected_name,
+            got=value,
+            error_message=f"no coercion path from {original_type.__name__} to {expected_name}",
+        ),
     )
 
 
@@ -441,9 +473,7 @@ def _coerce_list_elements(
     out: list[Any] = []
     any_failure: CoercionFailure | None = None
     for i, elem in enumerate(value):
-        coerced, _, failure = _coerce_value(
-            f"{name}[{i}]", elem, inner_target, custom_coercers
-        )
+        coerced, _, failure = _coerce_value(f"{name}[{i}]", elem, inner_target, custom_coercers)
         out.append(coerced)
         if failure is not None and any_failure is None:
             any_failure = failure
@@ -463,12 +493,8 @@ def _coerce_dict_elements(
     out: dict[Any, Any] = {}
     any_failure: CoercionFailure | None = None
     for k, v in value.items():
-        coerced_k, _, k_fail = _coerce_value(
-            f"{name}.<key>", k, key_target, custom_coercers
-        )
-        coerced_v, _, v_fail = _coerce_value(
-            f"{name}.{k}", v, val_target, custom_coercers
-        )
+        coerced_k, _, k_fail = _coerce_value(f"{name}.<key>", k, key_target, custom_coercers)
+        coerced_v, _, v_fail = _coerce_value(f"{name}.{k}", v, val_target, custom_coercers)
         if k_fail is not None and any_failure is None:
             any_failure = k_fail
         if v_fail is not None and any_failure is None:
@@ -544,9 +570,7 @@ def coerce_args(
             out[name] = value
             continue
         target_type = schema[name]
-        coerced, record, failure = _coerce_value(
-            name, value, target_type, custom_coercers
-        )
+        coerced, record, failure = _coerce_value(name, value, target_type, custom_coercers)
         if failure is not None:
             if strict:
                 raise CoercionError(

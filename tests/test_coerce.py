@@ -36,9 +36,7 @@ def test_str_to_int_with_whitespace_and_negative():
 
 
 def test_str_to_float_basic_and_scientific():
-    r = coerce_args(
-        {"pi": "3.14", "big": "1e10"}, {"pi": float, "big": float}
-    )
+    r = coerce_args({"pi": "3.14", "big": "1e10"}, {"pi": float, "big": float})
     assert r.args["pi"] == 3.14
     assert r.args["big"] == 1e10
     assert len(r.coercions) == 2
@@ -104,6 +102,22 @@ def test_int_to_str():
 def test_float_to_str():
     r = coerce_args({"x": 1.5}, {"x": str})
     assert r.args == {"x": "1.5"}
+
+
+def test_bool_to_int_is_recorded():
+    r = coerce_args({"x": True}, {"x": int})
+    assert r.args == {"x": 1}
+    assert isinstance(r.args["x"], int)
+    assert len(r.coercions) == 1
+    assert r.coercions[0].from_type == "bool"
+    assert r.coercions[0].to_type == "int"
+
+
+def test_bool_to_str():
+    r = coerce_args({"x": False}, {"x": str})
+    assert r.args == {"x": "False"}
+    assert r.coercions[0].from_type == "bool"
+    assert r.coercions[0].to_type == "str"
 
 
 # ---------- pass-through / no coercion needed ----------
@@ -199,6 +213,35 @@ def test_dict_str_int_coerces_values():
     assert r.args == {"d": {"a": 1, "b": 2}}
 
 
+def test_dict_str_int_from_json_string_coerces_values():
+    r = coerce_args({"d": '{"a": "1", "b": "2"}'}, {"d": dict[str, int]})
+    assert r.args == {"d": {"a": 1, "b": 2}}
+    assert r.coercions[0].from_type == "str"
+    assert r.coercions[0].to_type == "dict[str, int]"
+
+
+def test_nested_list_of_list_of_int():
+    r = coerce_args({"m": [["1", "2"], ["3"]]}, {"m": list[list[int]]})
+    assert r.args == {"m": [[1, 2], [3]]}
+
+
+def test_pep604_optional_inner_is_still_coerced():
+    r = coerce_args({"x": "5"}, {"x": int | None})
+    assert r.args == {"x": 5}
+
+
+def test_optional_generic_from_json_string():
+    # intentionally exercising typing.Optional API (not the PEP 604 alias)
+    r = coerce_args({"x": '["1", "2"]'}, {"x": Optional[list[int]]})  # noqa: UP045
+    assert r.args == {"x": [1, 2]}
+
+
+def test_none_to_plain_type_is_failure():
+    r = coerce_args({"x": None}, {"x": int})
+    assert r.args == {"x": None}
+    assert r.failures and r.failures[0].name == "x"
+
+
 # ---------- failures ----------
 
 
@@ -236,6 +279,13 @@ def test_list_string_that_parses_to_dict_is_failure_for_list():
 def test_no_path_from_object_to_int_is_failure():
     r = coerce_args({"n": object()}, {"n": int})
     assert r.failures
+
+
+def test_list_element_failure_keeps_raw_list():
+    r = coerce_args({"xs": ["1", "x"]}, {"xs": list[int]})
+    assert r.args == {"xs": ["1", "x"]}  # raw kept on element failure
+    assert r.failures and r.failures[0].name == "xs[1]"
+    assert r.coercions == []
 
 
 # ---------- strict mode ----------
@@ -296,6 +346,44 @@ def test_custom_coercer_failure_recorded():
     )
     assert r.failures and "nope" in r.failures[0].error_message
     assert r.args == {"n": "5"}  # raw kept
+
+
+def test_custom_coercer_overrides_already_correct_type():
+    # value is already an int but the custom (int, int) coercer must still win
+    r = coerce_args(
+        {"n": 5},
+        {"n": int},
+        custom_coercers={(int, int): lambda x: x * 10},
+    )
+    assert r.args == {"n": 50}
+    assert r.coercions and r.coercions[0].to_type == "int"
+
+
+def test_custom_coercer_does_not_apply_on_type_mismatch():
+    # value is an int, custom key is (str, int) -> custom should not fire,
+    # and no built-in coercion is needed, so value passes through unchanged
+    r = coerce_args(
+        {"n": 5},
+        {"n": int},
+        custom_coercers={(str, int): lambda s: -999},
+    )
+    assert r.args == {"n": 5}
+    assert r.coercions == []
+    assert r.failures == []
+
+
+def test_strict_mode_raises_on_custom_coercer_failure():
+    def explode(_s: str) -> int:
+        raise RuntimeError("boom")
+
+    with pytest.raises(CoercionError) as ei:
+        coerce_args(
+            {"n": "5"},
+            {"n": int},
+            strict=True,
+            custom_coercers={(str, int): explode},
+        )
+    assert ei.value.name == "n"
 
 
 # ---------- result shape ----------
